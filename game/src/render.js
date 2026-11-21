@@ -53,7 +53,9 @@ export function createRenderer(canvas) {
     context.font = fonts.get(size);
     context.fillStyle = color;
     context.textAlign = align || 'left';
-    context.textBaseline = baseline || 'alphabetic';
+    // Only override the baseline when the caller says so: the HUD sets 'top'
+    // once and expects it to hold for every line it draws.
+    if (baseline) context.textBaseline = baseline;
     context.fillText(value, x, y);
   }
 
@@ -188,6 +190,7 @@ export function createRenderer(canvas) {
   }
 
   function drawWorld(state, time) {
+    context.textBaseline = 'alphabetic';
     drawCity(state);
     // Skid marks.
     context.strokeStyle = 'rgba(10,10,14,0.5)';
@@ -431,7 +434,8 @@ export function createRenderer(canvas) {
     if (screen === SCREEN_TITLE) {
       drawPanel('NEON HARBOR', [
         'Marlowe Bay. One driver. Fifty grand of debt.',
-        'Steal cars. Outrun the Harbor Police. Work six jobs for Mara Voss.',
+        'Steal cars. Outrun the Harbor Police.',
+        'Work six jobs for Mara Voss.',
         'WASD / arrows move and drive · E steal or leave a car',
         'Space or click shoots · P pauses · Missions pay cash',
         '',

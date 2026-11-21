@@ -3,7 +3,7 @@
 // autopilot (walk to the nearest car, steal it, then drive along the roads toward a
 // target), so the frame is what a short game really looks like and the same seed always
 // gives the same frame.
-import { STEP } from './config.js';
+import { STEP, WATER_Y, WORLD } from './config.js';
 import { SCREEN_PLAY, SCREEN_TITLE } from './render.js';
 
 const TAU = Math.PI * 2;
@@ -35,6 +35,11 @@ function steerToward(state, tx, ty) {
 function driveInput(state, tx, ty) {
   const p = state.player;
   const city = state.city;
+  // Near the edge of the city, head back toward the centre instead of grinding
+  // along the bay or the outer roads.
+  if (p.x < 340 || p.x > WORLD.width - 340 || p.y < 340 || p.y > WATER_Y - 340) {
+    return steerToward(state, WORLD.width / 2, 1200);
+  }
   if (tx === undefined) {
     // No target: keep going along the road ahead.
     const ahead = 260;

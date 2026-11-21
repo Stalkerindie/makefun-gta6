@@ -440,7 +440,7 @@ export function createWorld(random) {
     state.cash = 0;
     state.earned = 0;
     state.time = 0;
-    state.timeOfDay = 0.32;
+    state.timeOfDay = 0.12;
     state.missionIndex = 0;
     state.mission = null;
     state.missionStep = 0;

@@ -22,8 +22,8 @@ export const PLAYER = {
   radius: 13,
   walkSpeed: 210,
   health: 100,
-  regenDelay: 5,
-  regenRate: 3,
+  regenDelay: 3,
+  regenRate: 8,
 };
 
 export const CAR = {

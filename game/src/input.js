@@ -96,6 +96,15 @@ export function createInput(target) {
       touchX = Math.max(-1, Math.min(1, x));
       touchY = Math.max(-1, Math.min(1, y));
     },
+    /** Raw joystick vector for analog driving: { x, y, active }. Small dead
+        zone so a resting thumb does not creep the car. Keyboard input
+        leaves this inactive, so keyboard driving stays exactly as before. */
+    analog() {
+      const dz = 0.12;
+      const ax = Math.abs(touchX) < dz ? 0 : touchX;
+      const ay = Math.abs(touchY) < dz ? 0 : touchY;
+      return { x: ax, y: ay, active: ax !== 0 || ay !== 0 };
+    },
     /** Queue a one-shot press from a touch button, exactly like a key press. */
     queueTouchAction(flag) {
       actions |= flag;

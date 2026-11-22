@@ -276,6 +276,7 @@ function runGame() {
       down: input.down(),
       left: input.left(),
       right: input.right(),
+      analog: input.analog(),
       enter: Boolean(actions & ACTION_ENTER),
       shoot: Boolean(actions & ACTION_SHOOT),
       aimX,

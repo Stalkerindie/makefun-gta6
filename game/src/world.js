@@ -218,6 +218,9 @@ export function createWorld(random) {
     car.active = false;
     player.car = null;
     player.onFoot = true;
+    // Brief breathing room after the wreck: the chase is still on, but the
+    // player should not be rammed to death before they can move again.
+    player.invulnerable = 2;
     return events | EVENT_CRASH;
   }
 
@@ -523,7 +526,7 @@ export function createWorld(random) {
   function damagePlayer(amount, events) {
     if (player.invulnerable > 0) return events;
     player.health -= amount;
-    player.invulnerable = 0.6;
+    player.invulnerable = 1.2;
     player.lastDamage = state.time;
     if (player.health <= 0) {
       player.health = 0;
@@ -660,12 +663,21 @@ export function createWorld(random) {
       state.engineSpeed = 0;
     } else {
       const car = player.car;
-      const forward = input.up ? 1 : 0;
-      const reverse = input.down ? 1 : 0;
-      if (forward) car.speed = Math.min(CAR.maxSpeed, car.speed + CAR.accel * dt);
-      else if (reverse) car.speed = Math.max(-CAR.reverseMax, car.speed - CAR.brake * dt);
+      // Touch joystick drives analog: push the stick a little for a little
+      // throttle and steering, all the way for full lock. A held stick used
+      // to mean full throttle + full-lock steering (2.9 rad/s), which made
+      // the car whip around on a phone. Keyboard stays binary, as before.
+      const analog = input.analog && input.analog.active ? input.analog : null;
+      const throttle = analog ? clamp(-analog.y, 0, 1) : (input.up ? 1 : 0);
+      const reverseAmt = analog ? clamp(analog.y, 0, 1) : (input.down ? 1 : 0);
+      const steerRaw = analog ? clamp(analog.x, -1, 1) : ((input.left ? -1 : 0) + (input.right ? 1 : 0));
+      if (throttle > 0) car.speed = Math.min(CAR.maxSpeed, car.speed + CAR.accel * throttle * dt);
+      else if (reverseAmt > 0) car.speed = Math.max(-CAR.reverseMax, car.speed - CAR.brake * reverseAmt * dt);
       else car.speed -= Math.sign(car.speed) * Math.min(Math.abs(car.speed), 260 * dt);
-      const steer = (input.left ? -1 : 0) + (input.right ? 1 : 0);
+      // Less steering authority at speed, so a held stick does not spin the
+      // car at full lock while it is doing 540 px/s.
+      const steerAuthority = analog ? clamp(1 - 0.45 * (Math.abs(car.speed) / CAR.maxSpeed), 0.55, 1) : 1;
+      const steer = steerRaw * steerAuthority;
       // Some steering authority even when slow, so a car nosed into a wall can
       // still turn away instead of sitting wedged.
       const grip = clamp(Math.abs(car.speed) / 120, 0.3, 1);
@@ -809,9 +821,9 @@ export function createWorld(random) {
       const d = Math.sqrt(dist2(car.x, car.y, player.x, player.y));
       if (d < 46) {
         if (player.onFoot) {
-          events |= damagePlayer(14, events);
+          events |= damagePlayer(6, events);
         } else if (player.car && Math.abs(car.speed) > 120) {
-          player.car.health -= 8;
+          player.car.health -= 5;
           burst(player.x, player.y, 6, '#ffd23f', 120);
           events |= EVENT_CRASH;
           events |= wreckPlayerCar(events);

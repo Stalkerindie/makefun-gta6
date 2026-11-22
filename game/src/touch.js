@@ -108,7 +108,17 @@ export function attachTouchControls(input) {
   stick.addEventListener('pointerup', stickEnd);
   stick.addEventListener('pointercancel', stickEnd);
 
-  // Buttons queue one-shot actions, exactly like their keys.
+  // Buttons queue one-shot actions, exactly like their keys. The gun button
+  // fires again while it is held (the world's shoot cooldown paces it), so a
+  // thumb held on it is autofire. Every button shows a pressed state while
+  // held, so a tap that lands always reads as one.
+  let shootTimer = null;
+  function stopShooting() {
+    if (shootTimer !== null) {
+      clearInterval(shootTimer);
+      shootTimer = null;
+    }
+  }
   for (const [button, action] of [
     [enter, ACTION_ENTER],
     [shoot, ACTION_SHOOT],
@@ -116,9 +126,21 @@ export function attachTouchControls(input) {
     [confirm, ACTION_CONFIRM],
   ]) {
     button.addEventListener('pointerdown', (event) => {
+      button.classList.add('pressed');
       input.queueTouchAction(action);
+      if (button === shoot) {
+        stopShooting();
+        shootTimer = setInterval(() => input.queueTouchAction(ACTION_SHOOT), 150);
+      }
       event.preventDefault();
     });
+    const release = () => {
+      button.classList.remove('pressed');
+      if (button === shoot) stopShooting();
+    };
+    button.addEventListener('pointerup', release);
+    button.addEventListener('pointercancel', release);
+    button.addEventListener('pointerleave', release);
   }
 
   return { root, stick, knob, buttons: { enter, shoot, pause, confirm } };

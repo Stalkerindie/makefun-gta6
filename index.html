@@ -3,22 +3,63 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="refresh" content="0; url=game/">
-<title>Neon Harbor</title>
+<meta name="description" content="Neon Harbor — a 2D top-down open-world crime game. Steal cars, outrun the Harbor Police, and work six story jobs for Mara Voss across Marlowe Bay.">
+<meta name="theme-color" content="#0b0e16">
+<title>Neon Harbor — Marlowe Bay</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #0b0e16; color: #fff;
-    font-family: system-ui, sans-serif; display: flex; align-items: center;
-    justify-content: center; text-align: center; }
-  a { display: inline-block; margin-top: 16px; padding: 16px 32px;
-    border-radius: 32px; background: #ff2d78; color: #fff; font-size: 20px;
-    text-decoration: none; }
+  html, body { margin: 0; min-height: 100%; background: #0b0e16; color: #eef1f5;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 64px 24px 48px; text-align: center; }
+  h1 { margin: 0; font-size: 56px; letter-spacing: 2px; color: #ffd23f; }
+  .tagline { margin: 12px 0 0; font-size: 19px; color: #9aa3b2; }
+  .play { display: inline-block; margin: 36px 0 8px; padding: 18px 44px;
+    border-radius: 36px; background: #ff2d78; color: #fff; font-size: 22px;
+    font-weight: 700; text-decoration: none; }
+  .play:hover { background: #ff5fa2; }
+  .note { margin: 0; font-size: 14px; color: #9aa3b2; }
+  section { text-align: left; margin-top: 44px; }
+  h2 { font-size: 20px; color: #ff5fa2; margin: 0 0 10px; }
+  ul { margin: 0; padding-left: 22px; line-height: 1.7; color: #d8dce4; }
+  kbd { background: #24272f; border: 1px solid #4a5060; border-radius: 6px;
+    padding: 1px 7px; font-family: inherit; font-size: 14px; }
+  footer { margin-top: 48px; font-size: 13px; color: #9aa3b2; }
+  footer a { color: #7ee787; }
 </style>
 </head>
 <body>
 <main>
-  <h1>Neon Harbor</h1>
-  <p>Loading Marlowe Bay…</p>
-  <a href="game/">▶ Play Neon Harbor</a>
+  <h1>NEON HARBOR</h1>
+  <p class="tagline">Marlowe Bay. One driver. Fifty grand of debt.</p>
+  <a class="play" href="game/">▶ Play Neon Harbor</a>
+  <p class="note">Runs entirely in your browser — no downloads, no accounts, no network.</p>
+
+  <section>
+    <h2>The game</h2>
+    <ul>
+      <li>An open city to drive and walk: traffic, pedestrians, parks, the docks, and the bay.</li>
+      <li>Six story jobs for fixer Mara Voss — steal a car, run a parcel, tail a courier, lose the heat, crack the bank vault, and make the last run to the Old Pier.</li>
+      <li>A wanted system from 0 to 5 stars, with Harbor Police cars and foot cops that chase, ram, and arrest.</li>
+      <li>A living minimap with the objective, police, cash and repair toolboxes — plus an edge arrow that points at the job when it is off-screen.</li>
+      <li>Day and night: headlights cut through the dark, and repair toolboxes patch a busted car back up.</li>
+      <li>Synthesized WebAudio sound, a best-haul record, and a save that keeps your cash and progress.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Controls</h2>
+    <ul>
+      <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows — move and drive</li>
+      <li><kbd>E</kbd> — steal or leave a car</li>
+      <li><kbd>Space</kbd> (hold to keep firing) or click — shoot</li>
+      <li><kbd>P</kbd> — pause</li>
+      <li>On phones and tablets: a joystick bottom-left, and buttons bottom-right to enter a car, shoot, pause, and confirm.</li>
+    </ul>
+  </section>
+
+  <footer>
+    Built for the make.fun GTA 6 bounty. Source on
+    <a href="https://github.com/Stalkerindie/makefun-gta6">GitHub</a>.
+  </footer>
 </main>
 </body>
 </html>

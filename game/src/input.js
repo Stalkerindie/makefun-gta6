@@ -26,6 +26,10 @@ export function createInput(target) {
   let mouseX = 0;
   let mouseY = 0;
   let mouseDown = false;
+  // Holding Space fires again and again (the world's shoot cooldown paces
+  // it), so a held trigger is an autofire trigger. The key-repeat events
+  // queue the shot each time; a single press still fires exactly once.
+  let shootHeld = false;
   // Touch controls (see touch.js): a joystick vector in [-1, 1] and one-shot
   // presses queued the same way as keys, so both paths share one input.
   let touchX = 0;
@@ -43,7 +47,8 @@ export function createInput(target) {
     } else if (ENTER.has(event.code)) {
       if (!event.repeat) actions |= ACTION_ENTER;
     } else if (SHOOT.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_SHOOT;
+      shootHeld = true;
+      actions |= ACTION_SHOOT;
     } else return;
     event.preventDefault();
   });
@@ -52,6 +57,7 @@ export function createInput(target) {
     else if (DOWN.has(event.code)) down = false;
     else if (LEFT.has(event.code)) left = false;
     else if (RIGHT.has(event.code)) right = false;
+    else if (SHOOT.has(event.code)) shootHeld = false;
   });
   // A key released while the tab is hidden never sends keyup: let go of everything on blur.
   window.addEventListener('blur', () => {
@@ -60,6 +66,7 @@ export function createInput(target) {
     left = false;
     right = false;
     mouseDown = false;
+    shootHeld = false;
     touchX = 0;
     touchY = 0;
   });
@@ -85,6 +92,8 @@ export function createInput(target) {
     left: () => left || touchX < -0.25,
     right: () => right || touchX > 0.25,
     mouse: () => ({ x: mouseX, y: mouseY, down: mouseDown }),
+    /** True while the shoot key is held down (autofire; the world paces it). */
+    shootHeld: () => shootHeld,
     /** The one-shot presses since the last call, as ACTION_* flags. */
     takeActions() {
       const taken = actions;

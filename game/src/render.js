@@ -4,7 +4,7 @@
 // the bay and the pier, cars, pedestrians, cops, particles, skid marks, a pulsing objective
 // beacon, and the HUD — health, cash, wanted stars and a live minimap. A day/night tint
 // washes over the world as time passes.
-import { CAR, FIELD, FONT, PALETTE, PED, PLAYER, ROAD, WATER_Y, WORLD } from './config.js';
+import { ARROW, CAR, FIELD, FONT, HEADLIGHT, MINIMAP_DOTS, PALETTE, PED, PLAYER, ROAD, WATER_Y, WORLD } from './config.js';
 
 export const SCREEN_TITLE = 'title';
 export const SCREEN_PLAY = 'play';
@@ -208,6 +208,15 @@ export function createRenderer(canvas) {
     for (const pk of state.pickups) {
       if (!pk.active) continue;
       const bob = Math.sin(time * 3 + pk.x) * 2;
+      if (pk.kind === 'repair') {
+        // A toolbox: green disc with a white cross, bobbing like the cash.
+        context.fillStyle = PALETTE.repair;
+        circle(pk.x, pk.y + bob, 11);
+        context.fillStyle = PALETTE.repairCross;
+        context.fillRect(pk.x - 2, pk.y - 7 + bob, 4, 14);
+        context.fillRect(pk.x - 7, pk.y - 2 + bob, 14, 4);
+        continue;
+      }
       context.fillStyle = PALETTE.cash;
       context.fillRect(pk.x - 9, pk.y - 7 + bob, 18, 14);
       text('$', pk.x, pk.y + 4 + bob, 13, '#12351c', 'center', 'middle');
@@ -318,6 +327,24 @@ export function createRenderer(canvas) {
       context.fillStyle = `rgba(255, 120, 60, ${dusk.toFixed(3)})`;
       context.fillRect(state.camera.x - 40, state.camera.y - 40, FIELD.width + 80, FIELD.height + 80);
     }
+    // Headlights: once it is dark, the player's car throws a beam ahead, so
+    // night driving is a searchlight, not a guessing game.
+    if (night > HEADLIGHT.minDark && !p.onFoot && state.player.car) {
+      const c = state.player.car;
+      const spread = Math.tan(HEADLIGHT.beamHalfAngle) * HEADLIGHT.beamLength;
+      context.save();
+      context.translate(c.x, c.y);
+      context.rotate(c.angle);
+      context.fillStyle = PALETTE.headlight;
+      context.beginPath();
+      context.moveTo(20, -8);
+      context.lineTo(20 + HEADLIGHT.beamLength, -spread);
+      context.lineTo(20 + HEADLIGHT.beamLength, spread);
+      context.lineTo(20, 8);
+      context.closePath();
+      context.fill();
+      context.restore();
+    }
   }
 
   function drawMinimap(state) {
@@ -346,19 +373,87 @@ export function createRenderer(canvas) {
     const obj = state.objectiveMarker;
     if (obj && obj.x !== null && obj.x !== undefined) {
       context.fillStyle = PALETTE.beacon;
-      circle(MINIMAP.x + obj.x * sx, MINIMAP.y + obj.y * sy, 5);
+      circle(MINIMAP.x + obj.x * sx, MINIMAP.y + obj.y * sy, MINIMAP_DOTS.marked);
+    }
+    // Cash and repair pickups, so a glance shows where the money and the
+    // toolboxes are without driving the whole city.
+    for (const pk of state.pickups) {
+      if (!pk.active) continue;
+      if (pk.kind === 'repair') {
+        context.strokeStyle = PALETTE.repair;
+        context.lineWidth = 2;
+        context.beginPath();
+        context.arc(MINIMAP.x + pk.x * sx, MINIMAP.y + pk.y * sy, MINIMAP_DOTS.repair, 0, Math.PI * 2);
+        context.stroke();
+      } else {
+        context.fillStyle = PALETTE.cash;
+        circle(MINIMAP.x + pk.x * sx, MINIMAP.y + pk.y * sy, MINIMAP_DOTS.pickup);
+      }
+    }
+    // Mission cars: the teal courier to tail, the gold getaway to steal.
+    if (state.courier && state.courier.active) {
+      context.fillStyle = '#2fa8a0';
+      circle(MINIMAP.x + state.courier.x * sx, MINIMAP.y + state.courier.y * sy, MINIMAP_DOTS.marked);
+    }
+    if (state.getaway && state.getaway.active) {
+      context.fillStyle = '#ffd23f';
+      circle(MINIMAP.x + state.getaway.x * sx, MINIMAP.y + state.getaway.y * sy, MINIMAP_DOTS.marked);
     }
     for (const car of state.cars) {
       if (!car.active || car.kind !== 'police') continue;
       context.fillStyle = '#5b8cff';
-      circle(MINIMAP.x + car.x * sx, MINIMAP.y + car.y * sy, 3);
+      circle(MINIMAP.x + car.x * sx, MINIMAP.y + car.y * sy, MINIMAP_DOTS.police);
     }
     context.fillStyle = '#fff';
-    circle(MINIMAP.x + state.player.x * sx, MINIMAP.y + state.player.y * sy, 4);
+    circle(MINIMAP.x + state.player.x * sx, MINIMAP.y + state.player.y * sy, MINIMAP_DOTS.player);
+    // A tick showing which way the player faces.
+    context.strokeStyle = '#fff';
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(MINIMAP.x + state.player.x * sx, MINIMAP.y + state.player.y * sy);
+    context.lineTo(
+      MINIMAP.x + (state.player.x + Math.cos(state.player.angle) * 130) * sx,
+      MINIMAP.y + (state.player.y + Math.sin(state.player.angle) * 130) * sy,
+    );
+    context.stroke();
     context.strokeStyle = '#fff';
     context.lineWidth = 1;
     context.strokeRect(MINIMAP.x - 4, MINIMAP.y - 4, MINIMAP.w + 8, MINIMAP.h + 8);
     text('MARLOWE BAY', MINIMAP.x + MINIMAP.w / 2, MINIMAP.y + MINIMAP.h + 16, 12, PALETTE.muted, 'center');
+  }
+
+  /** When the objective beacon is outside the camera's view, an arrow hugs
+      the screen edge and points at it, with the distance in metres. On screen,
+      the beacon itself does the job, so nothing is drawn. */
+  function drawObjectiveArrow(state) {
+    const obj = state.objectiveMarker;
+    if (!obj || obj.x === null || obj.x === undefined) return;
+    const vx = obj.x - state.camera.x;
+    const vy = obj.y - state.camera.y;
+    if (vx >= 0 && vx <= FIELD.width && vy >= 0 && vy <= FIELD.height) return;
+    const cx = FIELD.width / 2;
+    const cy = FIELD.height / 2;
+    const dx = vx - cx;
+    const dy = vy - cy;
+    const m = ARROW.edgeMargin;
+    const scale = Math.min((cx - m) / Math.abs(dx), (cy - m) / Math.abs(dy));
+    const ex = cx + dx * scale;
+    const ey = cy + dy * scale;
+    const angle = Math.atan2(dy, dx);
+    const size = ARROW.size;
+    context.save();
+    context.translate(ex, ey);
+    context.rotate(angle);
+    context.fillStyle = PALETTE.beacon;
+    context.beginPath();
+    context.moveTo(size, 0);
+    context.lineTo(-size * 0.7, -size * 0.75);
+    context.lineTo(-size * 0.7, size * 0.75);
+    context.closePath();
+    context.fill();
+    context.restore();
+    const metres = Math.round(Math.hypot(obj.x - state.player.x, obj.y - state.player.y) / 10);
+    text(`${metres}m`, ex, ey + 26, 15, PALETTE.beacon, 'center');
   }
 
   function drawHud(state, ui) {
@@ -386,6 +481,7 @@ export function createRenderer(canvas) {
     }
     if (stars > 0) text('WANTED', FIELD.width / 2, 48, 13, PALETTE.star, 'center');
     drawMinimap(state);
+    drawObjectiveArrow(state);
     // Mission objective, bottom left.
     if (ui.objectiveText) {
       context.fillStyle = 'rgba(0,0,0,0.55)';

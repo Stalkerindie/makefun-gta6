@@ -17,6 +17,7 @@ import {
   EVENT_ENTER_CAR,
   EVENT_MISSION,
   EVENT_OVER,
+  EVENT_REPAIR,
   EVENT_SHOT,
   EVENT_STEAL,
   MISSIONS,
@@ -88,8 +89,8 @@ function writeSave() {
 }
 
 /** The HUD data for the current frame: objective text, mission title, transient message. */
-function uiFor(state, best, message) {
-  const ui = { best, message: message || null, objectiveText: null, missionTitle: null, briefingLines: null, reward: 0, nextTitle: null, isTouch: isTouchDevice() };
+function uiFor(state, best, message, saveExists) {
+  const ui = { best, message: message || null, objectiveText: null, missionTitle: null, briefingLines: null, reward: 0, nextTitle: null, isTouch: isTouchDevice(), saveExists: Boolean(saveExists) };
   const obj = world.objective();
   // The renderer draws its beacon and minimap dot from this marker; it was
   // never assigned before, so no objective ever pointed anywhere.
@@ -100,6 +101,9 @@ function uiFor(state, best, message) {
   }
   if (obj) {
     ui.objectiveText = obj.text;
+    // Distance to the target, in metres — the player always knows how far
+    // the job is, even when the beacon is off-screen.
+    if (obj.distance !== null && obj.distance !== undefined) ui.objectiveText += ` · ${obj.distance}m`;
     if (state.mission) {
       const step = state.mission.steps[state.missionStep];
       if (step) {
@@ -110,6 +114,8 @@ function uiFor(state, best, message) {
           ui.objectiveText += `\nCracking… ${Math.min(99, Math.floor((state.missionProgress / step.hold) * 100))}%`;
         } else if (step.type === 'follow') {
           ui.objectiveText += `\n${Math.floor(state.missionProgress)}s / ${step.need}s`;
+        } else if (step.type === 'evade') {
+          ui.objectiveText += `\nWanted now: ${Math.floor(state.wanted)}★ — lose them all`;
         }
       }
     }
@@ -121,7 +127,7 @@ function uiFor(state, best, message) {
 
 function runShot(name) {
   const scene = stageShot(name, world);
-  const ui = uiFor(world.state, scene.best, null);
+  const ui = uiFor(world.state, scene.best, null, false);
   let painted = 0;
   function paint() {
     renderer.draw(world.state, scene.screen, ui);
@@ -286,7 +292,7 @@ function runGame() {
       right: input.right(),
       analog: input.analog(),
       enter: Boolean(actions & ACTION_ENTER),
-      shoot: Boolean(actions & ACTION_SHOOT),
+      shoot: Boolean(actions & ACTION_SHOOT) || input.shootHeld(),
       aimX,
       aimY,
     };
@@ -305,6 +311,10 @@ function runGame() {
     if (events & EVENT_CASH) {
       audio.cash();
       showMessage('+$100', 1.5);
+    }
+    if (events & EVENT_REPAIR) {
+      audio.cash();
+      showMessage('Patched up', 1.5);
     }
     if (events & EVENT_ENTER_CAR) audio.click();
     if (events & EVENT_STEAL) showMessage('Car stolen — the cops noticed', 2.5);
@@ -350,7 +360,7 @@ function runGame() {
     } else {
       accumulator = 0;
     }
-    const ui = uiFor(world.state, best, message);
+    const ui = uiFor(world.state, best, message, save);
     if (screen === SCREEN_BRIEFING && world.state.mission) {
       ui.missionTitle = world.state.mission.title;
       ui.briefingLines = world.state.mission.briefing;

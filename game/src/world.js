@@ -3,7 +3,7 @@
 // six story jobs for Mara Voss. step() advances one fixed step and returns what happened
 // as bit flags, so the caller can react (sound, panels) without the world knowing about
 // screens. Pools are allocated once at boot; nothing here allocates in the hot loop.
-import { BULLET, CAR, FIELD, PED, PLAYER, ROAD, STEP, TRAFFIC_COUNT, PARKED_COUNT, PED_COUNT, WANTED, WATER_Y, WORLD } from './config.js';
+import { BULLET, CAR, FIELD, PED, PLAYER, REPAIR, ROAD, STEP, TRAFFIC_COUNT, PARKED_COUNT, PED_COUNT, WANTED, WATER_Y, WORLD } from './config.js';
 import { createCity } from './city.js';
 
 export const EVENT_HIT = 1;
@@ -18,6 +18,7 @@ export const EVENT_MISSION_START = 256;
 export const EVENT_ENTER_CAR = 512;
 export const EVENT_STEAL = 1024;
 export const EVENT_ARREST_WARN = 2048;
+export const EVENT_REPAIR = 4096;
 
 const TAU = Math.PI * 2;
 
@@ -165,9 +166,10 @@ export function createWorld(random) {
     player,
     cars, peds, cops, bullets, particles, skids, pickups,
     wanted: 0, quietTimer: 0, cash: 0, earned: 0,
-    time: 0, timeOfDay: 0.32,
+    time: 0, timeOfDay: 0.12,
     missionIndex: 0, mission: null, missionStep: 0, missionTimer: 0, missionProgress: 0,
     missionDone: false, storyComplete: false,
+    repairTimer: 0,
     camera: { x: 0, y: 0 },
     siren: false, engineSpeed: 0,
     stats: { carsStolen: 0, pedsHit: 0, shotsFired: 0, missionsDone: 0, arrests: 0 },
@@ -290,6 +292,17 @@ export function createWorld(random) {
     pk.kind = 'cash';
   }
 
+  /** A repair toolbox on the roadside: patches the car (or Rook, on foot). */
+  function spawnRepairPickup() {
+    const pk = free(pickups);
+    if (!pk) return;
+    const p = city.randomRoadPoint();
+    pk.active = true;
+    pk.x = p.x; pk.y = p.y;
+    pk.amount = 0;
+    pk.kind = 'repair';
+  }
+
   function spawnPoliceCar() {
     const car = free(cars);
     if (!car) return null;
@@ -410,22 +423,24 @@ export function createWorld(random) {
     return startMission(index);
   }
 
-  /** The current objective: text + where its marker points (null = no marker). */
+  /** The current objective: text + where its marker points (null = no marker)
+      + how far away it is in metres (null = no target to measure to). */
   function objective() {
     if (!state.mission) return null;
     const step = state.mission.steps[state.missionStep];
     if (!step) return null;
-    if (step.type === 'follow' && state.courier) return { text: step.text, x: state.courier.x, y: state.courier.y };
-    if (step.type === 'enterMarked' && state.getaway) return { text: step.text, x: state.getaway.x, y: state.getaway.y };
+    const metres = (x, y) => Math.round(Math.hypot(x - player.x, y - player.y) / 10);
+    if (step.type === 'follow' && state.courier) return { text: step.text, x: state.courier.x, y: state.courier.y, distance: metres(state.courier.x, state.courier.y) };
+    if (step.type === 'enterMarked' && state.getaway) return { text: step.text, x: state.getaway.x, y: state.getaway.y, distance: metres(state.getaway.x, state.getaway.y) };
     if (step.type === 'steal') {
       // Point at the nearest car that can be stolen, so the first job never
       // leaves the player wandering without a target.
       const car = nearestCar(player.x, player.y, 1e9, ['parked', 'traffic']);
-      if (car) return { text: step.text, x: car.x, y: car.y };
-      return { text: step.text, x: null, y: null };
+      if (car) return { text: step.text, x: car.x, y: car.y, distance: metres(car.x, car.y) };
+      return { text: step.text, x: null, y: null, distance: null };
     }
-    if (step.x !== undefined) return { text: step.text, x: step.x, y: step.y };
-    return { text: step.text, x: null, y: null };
+    if (step.x !== undefined) return { text: step.text, x: step.x, y: step.y, distance: metres(step.x, step.y) };
+    return { text: step.text, x: null, y: null, distance: null };
   }
 
   function reset(save) {
@@ -458,6 +473,7 @@ export function createWorld(random) {
     state.missionProgress = 0;
     state.missionDone = false;
     state.storyComplete = false;
+    state.repairTimer = 0;
     state.siren = false;
     state.engineSpeed = 0;
     state.stats = { carsStolen: 0, pedsHit: 0, shotsFired: 0, missionsDone: 0, arrests: 0 };
@@ -612,7 +628,6 @@ export function createWorld(random) {
     b.vy = Math.sin(a) * BULLET.speed;
     b.life = BULLET.range / BULLET.speed;
     state.stats.shotsFired += 1;
-    if (addWanted(0)) { /* no-op */ }
     return EVENT_SHOT;
   }
 
@@ -1027,11 +1042,31 @@ export function createWorld(random) {
       if (!pk.active) continue;
       if (dist2(pk.x, pk.y, player.x, player.y) < 34 * 34) {
         pk.active = false;
-        state.cash += pk.amount;
-        state.earned += pk.amount;
-        events |= EVENT_CASH;
-        if (random() < 0.6) spawnPickup();
+        if (pk.kind === 'repair') {
+          // A toolbox patches the car up; on foot it patches Rook instead.
+          if (!player.onFoot && player.car) {
+            player.car.health = Math.min(CAR.health, player.car.health + REPAIR.carHeal);
+          } else {
+            player.health = Math.min(PLAYER.health, player.health + REPAIR.footHeal);
+          }
+          events |= EVENT_REPAIR;
+        } else {
+          state.cash += pk.amount;
+          state.earned += pk.amount;
+          events |= EVENT_CASH;
+          if (random() < 0.6) spawnPickup();
+        }
       }
+    }
+
+    // ---- repair spawns: one toolbox every so often, capped so the city
+    // never drowns in them. ----
+    state.repairTimer += dt;
+    if (state.repairTimer >= REPAIR.spawnEverySeconds) {
+      state.repairTimer = 0;
+      let activeRepairs = 0;
+      for (const pk of pickups) if (pk.active && pk.kind === 'repair') activeRepairs += 1;
+      if (activeRepairs < REPAIR.maxActive) spawnRepairPickup();
     }
 
     // ---- particles / skids ----

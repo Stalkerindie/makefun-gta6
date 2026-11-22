@@ -22,7 +22,7 @@ import {
   MISSIONS,
 } from './world.js';
 import { ACTION_CONFIRM, ACTION_ENTER, ACTION_PAUSE, ACTION_SHOOT, createInput } from './input.js';
-import { attachTouchControls } from './touch.js';
+import { attachTouchControls, isTouchDevice } from './touch.js';
 import { createAudio } from './audio.js';
 import {
   createRenderer,
@@ -89,12 +89,18 @@ function writeSave() {
 
 /** The HUD data for the current frame: objective text, mission title, transient message. */
 function uiFor(state, best, message) {
-  const ui = { best, message: message || null, objectiveText: null, missionTitle: null, briefingLines: null, reward: 0, nextTitle: null };
+  const ui = { best, message: message || null, objectiveText: null, missionTitle: null, briefingLines: null, reward: 0, nextTitle: null, isTouch: isTouchDevice() };
   const obj = world.objective();
+  // The renderer draws its beacon and minimap dot from this marker; it was
+  // never assigned before, so no objective ever pointed anywhere.
+  state.objectiveMarker = obj && obj.x !== null && obj.x !== undefined ? { x: obj.x, y: obj.y } : null;
+  if (state.mission) {
+    ui.missionTitle = state.mission.title;
+    ui.briefingLines = state.mission.briefing || [];
+  }
   if (obj) {
     ui.objectiveText = obj.text;
     if (state.mission) {
-      ui.missionTitle = state.mission.title;
       const step = state.mission.steps[state.missionStep];
       if (step) {
         if (step.timer !== undefined) {
@@ -107,6 +113,8 @@ function uiFor(state, best, message) {
         }
       }
     }
+  } else if (state.storyComplete) {
+    ui.objectiveText = 'Free roam — debt paid. Drive Marlowe Bay.';
   }
   return ui;
 }

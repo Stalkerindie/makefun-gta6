@@ -417,6 +417,13 @@ export function createWorld(random) {
     if (!step) return null;
     if (step.type === 'follow' && state.courier) return { text: step.text, x: state.courier.x, y: state.courier.y };
     if (step.type === 'enterMarked' && state.getaway) return { text: step.text, x: state.getaway.x, y: state.getaway.y };
+    if (step.type === 'steal') {
+      // Point at the nearest car that can be stolen, so the first job never
+      // leaves the player wandering without a target.
+      const car = nearestCar(player.x, player.y, 1e9, ['parked', 'traffic']);
+      if (car) return { text: step.text, x: car.x, y: car.y };
+      return { text: step.text, x: null, y: null };
+    }
     if (step.x !== undefined) return { text: step.text, x: step.x, y: step.y };
     return { text: step.text, x: null, y: null };
   }

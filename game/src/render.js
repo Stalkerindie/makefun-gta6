@@ -266,21 +266,31 @@ export function createRenderer(canvas) {
         context.fillRect(cop.x - 12, cop.y - 26, 24 * (cop.arrest / 1.6), 5);
       }
     }
-    // Player.
+    // Player. While invulnerable the player is drawn ghosted, never hidden:
+    // blinking fully invisible read as "the character disappears".
     const p = state.player;
-    if (p.invulnerable === 0 || Math.floor(p.invulnerable * 10) % 2 === 1) {
-      if (p.onFoot) {
-        context.fillStyle = PALETTE.player;
-        circle(p.x, p.y, PLAYER.radius);
-        context.fillStyle = '#222';
-        circle(p.x + Math.cos(p.angle) * 5, p.y + Math.sin(p.angle) * 5, 5);
-        context.strokeStyle = '#333';
-        context.lineWidth = 3;
-        context.beginPath();
-        context.moveTo(p.x + Math.cos(p.angle) * 10, p.y + Math.sin(p.angle) * 10);
-        context.lineTo(p.x + Math.cos(p.angle) * 22, p.y + Math.sin(p.angle) * 22);
-        context.stroke();
-      }
+    if (p.onFoot) {
+      context.globalAlpha = p.invulnerable > 0 ? 0.35 : 1;
+      context.fillStyle = PALETTE.player;
+      circle(p.x, p.y, PLAYER.radius);
+      context.fillStyle = '#222';
+      circle(p.x + Math.cos(p.angle) * 5, p.y + Math.sin(p.angle) * 5, 5);
+      context.strokeStyle = '#333';
+      context.lineWidth = 3;
+      context.beginPath();
+      context.moveTo(p.x + Math.cos(p.angle) * 10, p.y + Math.sin(p.angle) * 10);
+      context.lineTo(p.x + Math.cos(p.angle) * 22, p.y + Math.sin(p.angle) * 22);
+      context.stroke();
+      context.globalAlpha = 1;
+    }
+    // Your car: a yellow ring so it never blends in with traffic.
+    if (state.player.car) {
+      const c = state.player.car;
+      context.strokeStyle = PALETTE.player;
+      context.lineWidth = 3;
+      context.beginPath();
+      context.arc(c.x, c.y, 34, 0, Math.PI * 2);
+      context.stroke();
     }
     // Bullets.
     context.fillStyle = '#ffe066';
@@ -394,7 +404,7 @@ export function createRenderer(canvas) {
       const carHealth = Math.max(0, Math.round(state.player.car.health));
       text(`CAR ${carHealth}%`, FIELD.width - 24, FIELD.height - 76, 15, carHealth > 30 ? PALETTE.muted : PALETTE.healthLow, 'right');
     } else {
-      text('WASD move · E steal car · Space shoot · P pause', FIELD.width - 24, FIELD.height - 40, 15, PALETTE.muted, 'right');
+      text(ui.isTouch ? 'Joystick moves · car button steals a car · gun button shoots' : 'WASD move · E steal car · Space shoot · P pause', FIELD.width - 24, FIELD.height - 40, 15, PALETTE.muted, 'right');
     }
     if (ui.message) {
       text(ui.message, FIELD.width / 2, 84, 24, PALETTE.marker, 'center');

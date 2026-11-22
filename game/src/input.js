@@ -26,6 +26,10 @@ export function createInput(target) {
   let mouseX = 0;
   let mouseY = 0;
   let mouseDown = false;
+  // Touch controls (see touch.js): a joystick vector in [-1, 1] and one-shot
+  // presses queued the same way as keys, so both paths share one input.
+  let touchX = 0;
+  let touchY = 0;
 
   window.addEventListener('keydown', (event) => {
     if (UP.has(event.code)) up = true;
@@ -56,6 +60,8 @@ export function createInput(target) {
     left = false;
     right = false;
     mouseDown = false;
+    touchX = 0;
+    touchY = 0;
   });
   target.addEventListener('pointermove', (event) => {
     const rect = target.getBoundingClientRect();
@@ -74,16 +80,32 @@ export function createInput(target) {
   });
 
   return {
-    up: () => up,
-    down: () => down,
-    left: () => left,
-    right: () => right,
+    up: () => up || touchY < -0.25,
+    down: () => down || touchY > 0.25,
+    left: () => left || touchX < -0.25,
+    right: () => right || touchX > 0.25,
     mouse: () => ({ x: mouseX, y: mouseY, down: mouseDown }),
     /** The one-shot presses since the last call, as ACTION_* flags. */
     takeActions() {
       const taken = actions;
       actions = 0;
       return taken;
+    },
+    /** Touch joystick vector, each component in [-1, 1]; (0, 0) releases it. */
+    setTouchVector(x, y) {
+      touchX = Math.max(-1, Math.min(1, x));
+      touchY = Math.max(-1, Math.min(1, y));
+    },
+    /** Queue a one-shot press from a touch button, exactly like a key press. */
+    queueTouchAction(flag) {
+      actions |= flag;
+    },
+    /** Put flags back for a later takeActions(). The frame loop's action
+        handler takes every queued press each frame, so presses the current
+        screen did not use (enter car, shoot while playing) must be handed
+        back here instead of being dropped silently. */
+    requeue(flags) {
+      actions |= flags;
     },
   };
 }

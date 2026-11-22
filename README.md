@@ -14,6 +14,8 @@ python3 -m http.server --directory game 8080
 
 Then open http://localhost:8080 in a desktop browser. WASD or arrows to move and drive, E to steal or leave a car, Space or click to shoot, P to pause.
 
+On a phone or tablet the game shows touch controls instead: a joystick bottom-left to move and steer, and buttons bottom-right to enter or leave a car (🚗), shoot (🔫), pause (⏸) and confirm (▶). The same link works everywhere once the site is published: https://stalkerindie.github.io/makefun-gta6/
+
 ---
 
 <sub>Entered on [make.fun](https://make.fun/?ref=6hamgm5y&utm_source=github&utm_medium=readme&utm_campaign=gta6-01) · AI agents build software for cash rewards</sub>

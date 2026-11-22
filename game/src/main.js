@@ -22,6 +22,7 @@ import {
   MISSIONS,
 } from './world.js';
 import { ACTION_CONFIRM, ACTION_ENTER, ACTION_PAUSE, ACTION_SHOOT, createInput } from './input.js';
+import { attachTouchControls } from './touch.js';
 import { createAudio } from './audio.js';
 import {
   createRenderer,
@@ -125,6 +126,8 @@ function runShot(name) {
 
 function runGame() {
   const input = createInput(canvas);
+  // Phones get a joystick + buttons driving the same input object.
+  attachTouchControls(input);
   let screen = SCREEN_TITLE;
   let best = readBest();
   let save = readSave();
@@ -248,6 +251,11 @@ function runGame() {
       audio.siren(false);
       announce('Paused.');
     }
+    // One-shot presses this screen did not use (enter car, shoot) belong to
+    // the simulation step below: hand them back instead of dropping them.
+    // Without this, E and Space/Space-tap could never reach the game, because
+    // this handler takes every queued press once per frame before step().
+    input.requeue(actions & (ACTION_ENTER | ACTION_SHOOT));
   }
 
   /** Build the step input from held keys and one-shot presses. */

@@ -136,7 +136,7 @@ export function createWorld(random) {
   // ---- pools (allocated once) ----
   const cars = [];
   for (let i = 0; i < 56; i += 1) {
-    cars.push({ active: false, kind: 'traffic', x: 0, y: 0, angle: 0, speed: 0, color: '#888', health: 100, axis: 'h', dir: 1, stopped: 0, driver: true, lose: 0, blind: 0, lastSeenX: 0, lastSeenY: 0, hurt: 0, id: i });
+    cars.push({ active: false, kind: 'traffic', x: 0, y: 0, angle: 0, speed: 0, color: '#888', health: 100, axis: 'h', dir: 1, stopped: 0, driver: true, lose: 0, blind: 0, ramCd: 0, lastSeenX: 0, lastSeenY: 0, hurt: 0, id: i });
   }
   const peds = [];
   for (let i = 0; i < PED_COUNT + 6; i += 1) {
@@ -170,6 +170,7 @@ export function createWorld(random) {
     missionIndex: 0, mission: null, missionStep: 0, missionTimer: 0, missionProgress: 0,
     missionDone: false, storyComplete: false,
     repairTimer: 0,
+    policeSpawnTimer: 0,
     camera: { x: 0, y: 0 },
     siren: false, engineSpeed: 0,
     stats: { carsStolen: 0, pedsHit: 0, shotsFired: 0, missionsDone: 0, arrests: 0 },
@@ -306,10 +307,18 @@ export function createWorld(random) {
   function spawnPoliceCar() {
     const car = free(cars);
     if (!car) return null;
-    // Spawn on a road 500-750px from the player, in a random direction.
+    // Spawn on a road 700-950px from the player, in a random direction:
+    // far enough out that a fresh cop cannot close to the 320px "seen"
+    // radius before the player has a chance to break away (520 used to
+    // drop them almost on top of the player).
+    // The spawn is biased to BEHIND the player's direction of travel: a
+    // cop appearing in the player's path is a roadblock, not a chase — it
+    // used to close head-on at ~980px/s and glue itself to the bumper.
+    // Behind, it has to earn the catch-up at 440 vs the player's 540.
+    const behind = player.angle + Math.PI;
     for (let tries = 0; tries < 12; tries += 1) {
-      const a = random() * TAU;
-      const d = 520 + random() * 220;
+      const a = behind + (random() - 0.5) * Math.PI;
+      const d = 700 + random() * 250;
       const p = city.nearestRoadPoint(player.x + Math.cos(a) * d, player.y + Math.sin(a) * d);
       if (dist2(p.x, p.y, player.x, player.y) < 420 * 420) continue;
       car.active = true;
@@ -325,6 +334,7 @@ export function createWorld(random) {
       car.hurt = 0;
       car.lose = 0;
       car.blind = 0;
+      car.ramCd = 0;
       car.lastSeenX = player.x;
       car.lastSeenY = player.y;
       return car;
@@ -391,7 +401,13 @@ export function createWorld(random) {
       }
       addWanted(4);
     }
-    if (def.id === 'hot-pursuit') addWanted(3);
+    // Hot Pursuit opens at exactly three stars, as the briefing says:
+    // adding to whatever heat the player carried in could open the job at
+    // five stars, which no amount of clean driving could lose.
+    if (def.id === 'hot-pursuit') {
+      state.wanted = 3;
+      state.quietTimer = 0;
+    }
     return EVENT_MISSION_START;
   }
 
@@ -474,6 +490,7 @@ export function createWorld(random) {
     state.missionDone = false;
     state.storyComplete = false;
     state.repairTimer = 0;
+    state.policeSpawnTimer = 0;
     state.siren = false;
     state.engineSpeed = 0;
     state.stats = { carsStolen: 0, pedsHit: 0, shotsFired: 0, missionsDone: 0, arrests: 0 };
@@ -486,7 +503,10 @@ export function createWorld(random) {
     if (save) {
       state.cash = save.cash || 0;
       state.earned = save.earned || state.cash;
-      state.missionIndex = Math.min(save.missionIndex || 0, MISSIONS.length - 1);
+      // Clamp to MISSIONS.length, not length - 1: index 6 means "story done,
+      // free roam", and clamping it to 5 sent a finished player back to
+      // replay the bank job every time they continued.
+      state.missionIndex = Math.min(save.missionIndex || 0, MISSIONS.length);
     }
   }
 
@@ -643,15 +663,20 @@ export function createWorld(random) {
       player.health = Math.min(PLAYER.health, player.health + PLAYER.regenRate * dt);
     }
 
-    // Wanted decay: only while quiet and no cop close.
+    // Wanted decay: only while quiet and no cop close *and able to see* the
+    // player. A cop on the far side of a building is not keeping the heat
+    // on: breaking line of sight is how a getaway works, so an unsighted
+    // cop within 320px no longer blocks the cooldown on its own.
     state.quietTimer += dt;
     let copNear = false;
     for (const car of cars) {
-      if (car.active && car.kind === 'police' && dist2(car.x, car.y, player.x, player.y) < 320 * 320) { copNear = true; break; }
+      if (car.active && car.kind === 'police' && dist2(car.x, car.y, player.x, player.y) < 320 * 320
+        && lineOfSight(car.x, car.y, player.x, player.y)) { copNear = true; break; }
     }
     if (!copNear) {
       for (const cop of cops) {
-        if (cop.active && dist2(cop.x, cop.y, player.x, player.y) < 320 * 320) { copNear = true; break; }
+        if (cop.active && dist2(cop.x, cop.y, player.x, player.y) < 320 * 320
+          && lineOfSight(cop.x, cop.y, player.x, player.y)) { copNear = true; break; }
       }
     }
     const decay = state.mission && state.mission.id === 'hot-pursuit' ? WANTED.decayPerSecond * 3 : WANTED.decayPerSecond;
@@ -775,7 +800,13 @@ export function createWorld(random) {
     for (const cop of cops) if (cop.active) footCops += 1;
     const wantCars = wantedStars === 0 ? 0 : Math.min(4, 1 + Math.floor(wantedStars / 2));
     const wantFoot = player.onFoot && wantedStars >= 2 ? Math.min(2, wantedStars - 1) : 0;
-    if (policeCars < wantCars && random() < 0.05) spawnPoliceCar();
+    // Reinforcements arrive in waves, not instantly: a fresh cop at most
+    // every 5s, so shaking a tail buys a real breather instead of a
+    // replacement appearing on the same frame the last one gave up.
+    if (state.policeSpawnTimer > 0) state.policeSpawnTimer -= dt;
+    if (policeCars < wantCars && state.policeSpawnTimer <= 0 && random() < 0.05) {
+      if (spawnPoliceCar()) state.policeSpawnTimer = 5;
+    }
     if (footCops < wantFoot && random() < 0.03) spawnFootCop();
     if (wantedStars === 0) {
       for (const car of cars) if (car.active && car.kind === 'police') car.active = false;
@@ -825,7 +856,10 @@ export function createWorld(random) {
         topSpeed = CAR.policeMax;
       } else {
         car.blind += dt;
-        if (car.blind > 3) {
+        // A cop that lost sight gives up fast: breaking line of sight
+        // behind a building is the way to shake a tail (3s used to let a
+        // cop round the corner and re-acquire the player first).
+        if (car.blind > 2) {
           car.active = false;
           continue;
         }
@@ -839,13 +873,22 @@ export function createWorld(random) {
       const slid = slideCar(car, nx, ny);
       car.x = clamp(slid.x, 20, WORLD.width - 20);
       car.y = clamp(slid.y, 20, WATER_Y - 20);
-      // Ram the player.
+      // Ram the player. A ram has a cooldown: without one, a cop glued to
+      // the bumper hits every few frames and shreds the car before the
+      // player can pull away, which turns every chase into a forced steal
+      // (+1 wanted) and an unwinnable spiral.
+      if (car.ramCd > 0) car.ramCd -= dt;
       const d = Math.sqrt(dist2(car.x, car.y, player.x, player.y));
-      if (d < 46) {
+      if (d < 46 && car.ramCd <= 0) {
+        car.ramCd = 1.2;
         if (player.onFoot) {
           events |= damagePlayer(6, events);
         } else if (player.car && Math.abs(car.speed) > 120) {
-          player.car.health -= 5;
+          // A ram dents the car but does not shred it: at 5 damage the car
+          // died in ~12s of contact, which forced a steal (+1 wanted) and
+          // turned every chase into an unwinnable spiral. Contact is a
+          // disruption (bounce + cooldown), not a death sentence.
+          player.car.health -= 2;
           burst(player.x, player.y, 6, '#ffd23f', 120);
           events |= EVENT_CRASH;
           events |= wreckPlayerCar(events);
@@ -1006,7 +1049,13 @@ export function createWorld(random) {
           b.x += nx * push;
           b.y += ny * push;
           const rel = Math.abs(a.speed - b.speed);
-          if (rel > 250) {
+          // Police contact is governed by the ram code (damage + bounce +
+          // cooldown) and NOT by this generic impact: a ram used to also
+          // cost the player's car 3 health and cut its speed 30%, so the
+          // player could never pull away after a touch and the cop stayed
+          // glued to the bumper until the car died.
+          const policeInvolved = a.kind === 'police' || b.kind === 'police';
+          if (rel > 250 && !policeInvolved) {
             // A real impact: noise, a small dent to the player's car (with a
             // short immunity so one crash cannot shred it), and both cars lose
             // speed. A gentle touch only pushes the cars apart, so a chase

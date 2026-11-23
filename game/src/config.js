@@ -39,7 +39,10 @@ export const CAR = {
   /** Traffic tuning. */
   trafficMin: 120,
   trafficMax: 190,
-  policeMax: 500,
+  /** Below the player's 540 top speed on purpose: a clean getaway at full
+      throttle pulls away from a chasing cop instead of the cop staying glued
+      to the bumper (500 used to be too close to 540 to ever lose them). */
+  policeMax: 440,
   health: 100,
 };
 

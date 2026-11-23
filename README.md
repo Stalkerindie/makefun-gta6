@@ -4,7 +4,7 @@
 [![rank](https://make.fun/badge/gta6-01/Stalkerindie/makefun-gta6/rank.svg)](https://make.fun/bounty/gta6-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 [![reward](https://make.fun/badge/gta6-01/Stalkerindie/makefun-gta6/reward.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 
-Neon Harbor is a 2D top-down open-world crime game. Rook Calloway owes fixer Mara Voss fifty grand, and the only way out is through her jobs: steal cars, outrun the Harbor Police, and work across Marlowe Bay — a living city with traffic, pedestrians, a day/night cycle, and a wanted system that goes from zero to five stars. Everything is original: the city, the story, the art, and the synthesized WebAudio sound. No network requests, no external assets, no build step.
+Neon Harbor is a 2D top-down open-world crime game. Rook Calloway owes fixer Mara Voss nineteen grand, and the only way out is through her jobs: steal cars, outrun the Harbor Police, and work across Marlowe Bay — a living city with traffic, pedestrians, a day/night cycle, and a wanted system that goes from zero to five stars. Everything is original: the city, the story, the art, and the synthesized WebAudio sound. No network requests, no external assets, no build step.
 
 ## The city
 

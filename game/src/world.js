@@ -40,14 +40,14 @@ function angleDiff(a, b) {
   return d;
 }
 
-/** Six jobs for Mara Voss. Rook owes her fifty grand; each job pays the debt down. */
+/** Six jobs for Mara Voss. Rook owes her nineteen grand; each job pays the debt down. */
 export const MISSIONS = [
   {
     id: 'first-gear',
     title: 'Job 1: First Gear',
     reward: 500,
     briefing: [
-      'Mara Voss: "Rook. You owe me fifty grand."',
+      'Mara Voss: "Rook. You owe me nineteen grand."',
       '"Start small. Take a car — any car — and bring it to my garage."',
       'Steal a car, then drive it to Voss Garage.',
     ],
@@ -63,10 +63,10 @@ export const MISSIONS = [
     briefing: [
       'Mara Voss: "A package is waiting at the Docks."',
       '"Pick it up and take it to The Gull Cafe. Ninety seconds."',
-      '"The Gulls are watching the docks. Don\'t dawdle."',
+      '"The docks are a maze — stick to the roads."',
     ],
     steps: [
-      { type: 'goto', x: 960, y: 2160, radius: 90, text: 'Pick up the package at the Docks' },
+      { type: 'goto', x: 960, y: 2100, radius: 90, text: 'Pick up the package at the Docks' },
       { type: 'deliver', x: 2560, y: 1600, radius: 100, text: 'Deliver the package to The Gull Cafe', timer: 90 },
     ],
   },
@@ -77,7 +77,7 @@ export const MISSIONS = [
     briefing: [
       'Mara Voss: "One of the Gulls is running courier jobs for the Kings."',
       '"Follow his teal sedan. Learn where it goes. Don\'t lose it."',
-      'Stay close to the marked car — but don\'t get spotted.',
+      'Stay close to the marked car — don\'t lose it.',
     ],
     steps: [
       { type: 'follow', need: 15, text: 'Tail the teal courier — stay within sight' },
@@ -102,12 +102,13 @@ export const MISSIONS = [
     reward: 5000,
     briefing: [
       'Mara Voss: "The Marlowe Bay Bank. Vault code\'s on the house."',
-      '"Get inside, crack the vault, and get out. The whole force will come."',
+      '"Park at the door, crack the vault, and get out. The whole force will come."',
+      '"Park at the door — or get out (E) and walk up to it."',
       'Then lose them and bring the money home.',
     ],
     steps: [
-      { type: 'goto', x: 1920, y: 640, radius: 110, text: 'Get to the Marlowe Bay Bank' },
-      { type: 'grab', x: 1920, y: 640, radius: 120, hold: 6, text: 'Crack the vault — stay inside' },
+      { type: 'goto', x: 1920, y: 572, radius: 110, text: 'Get to the Marlowe Bay Bank' },
+      { type: 'grab', x: 1920, y: 572, radius: 120, hold: 6, text: 'Crack the vault — hold position at the door' },
       { type: 'drive', x: 640, y: 780, radius: 100, text: 'Escape to Voss Garage' },
     ],
   },
@@ -400,6 +401,30 @@ export function createWorld(random) {
         state.getaway = car;
       }
       addWanted(4);
+      // Climax roadblock: one police car waiting on the road ahead of the
+      // run to the pier — a threat the player has to get past, not a wall.
+      // It counts toward the normal wanted-4 car cap, so no extra wave
+      // spawns on top of it.
+      const roadblock = free(cars);
+      if (roadblock) {
+        const rp = city.nearestRoadPoint(1600, 2050);
+        roadblock.active = true;
+        roadblock.kind = 'police';
+        roadblock.x = rp.x; roadblock.y = rp.y;
+        roadblock.axis = rp.axis;
+        roadblock.angle = angleTo(rp.x, rp.y, player.x, player.y);
+        roadblock.speed = 0;
+        roadblock.color = '#2b4fd8';
+        roadblock.health = CAR.health;
+        roadblock.driver = true;
+        roadblock.stopped = 0;
+        roadblock.hurt = 0;
+        roadblock.lose = 0;
+        roadblock.blind = 0;
+        roadblock.ramCd = 0;
+        roadblock.lastSeenX = player.x;
+        roadblock.lastSeenY = player.y;
+      }
     }
     // Hot Pursuit opens at exactly three stars, as the briefing says:
     // adding to whatever heat the player carried in could open the job at
@@ -679,7 +704,7 @@ export function createWorld(random) {
           && lineOfSight(cop.x, cop.y, player.x, player.y)) { copNear = true; break; }
       }
     }
-    const decay = state.mission && state.mission.id === 'hot-pursuit' ? WANTED.decayPerSecond * 3 : WANTED.decayPerSecond;
+    const decay = state.mission && state.mission.id === 'hot-pursuit' ? WANTED.decayPerSecond * 4 : WANTED.decayPerSecond;
     if (state.quietTimer > WANTED.quietSeconds && !copNear && state.wanted > 0) {
       state.wanted = Math.max(0, state.wanted - decay * dt);
     }

@@ -122,9 +122,25 @@ function playChain(seed) {
         const gy = state.getaway.y;
         const d = Math.hypot(gx - px, gy - py);
         if (d < 50) {
-          const input = noInput();
-          input.enter = true;
-          return input;
+          // Enter only when the gold car is the nearest car: E grabs the
+          // nearest car, and the mission-5 car is parked right beside the
+          // gold one — pressing E while it is closer re-enters the wrong
+          // car, looping exit/re-enter while the 5-star foot cops close
+          // in (seed 4 busted this way). Otherwise keep walking to the
+          // far side below, where the gold car is nearest.
+          let nearest = null;
+          let nd = Infinity;
+          for (const c of state.cars) {
+            if (!c.active || c.kind === 'police') continue;
+            if (!['parked', 'traffic', 'courier', 'getaway'].includes(c.kind)) continue;
+            const dd = Math.hypot(c.x - px, c.y - py);
+            if (dd < nd) { nd = dd; nearest = c; }
+          }
+          if (nearest === state.getaway) {
+            const input = noInput();
+            input.enter = true;
+            return input;
+          }
         }
         // Approach from the far side of the old car, so Enter grabs the gold
         // car instead of re-entering the car we just left.
@@ -198,7 +214,18 @@ function playChain(seed) {
       if (!route) { route = planRoute(state, step.x, step.y); leg = 0; }
       const target = route[Math.min(leg, route.length - 1)];
       if (Math.hypot(target.x - px, target.y - py) < 70 && leg < route.length - 1) leg += 1;
-      return steerTo(state, route[Math.min(leg, route.length - 1)].x, route[Math.min(leg, route.length - 1)].y);
+      const input = steerTo(state, route[Math.min(leg, route.length - 1)].x, route[Math.min(leg, route.length - 1)].y);
+      // Brake for the door: at full speed the car coasts straight through
+      // the 102px stop zone (stopping distance ~480px on friction alone)
+      // and orbits the bank instead of parking. A human lifts off and
+      // brakes on approach; do the same, then creep in if stopped short.
+      const speed = Math.abs(state.player.car.speed);
+      if (d < 320) {
+        input.up = false;
+        if (speed > 140) input.down = true;
+        else if (speed < 60) input.up = true;
+      }
+      return input;
     }
     if (step.type === 'follow' && state.courier) {
       const c = state.courier;
@@ -308,6 +335,23 @@ function playChain(seed) {
   for (let stepNo = 0; stepNo < maxTotalSteps; stepNo += 1) {
     const t = stepNo * STEP;
     if (state.mission && (state.missionIndex !== lastMissionIdx || state.missionStep !== lastStep)) {
+      // A new goto/deliver/drive step has a new target (and a new beacon,
+      // for a human player): drop the old route so decide() plans to the
+      // new step instead of re-driving the previous step's legs. Without
+      // this, the deliver step of mission 2 re-used the pickup route and
+      // orbited the pickup point until the timer expired — masked before
+      // only because the old pickup point wedged the car between containers
+      // and the unstick happened to clear the route.
+      // Grab steps are excluded: the car is already at the target when the
+      // grab starts, and re-planning would send it away to the first leg
+      // instead of holding position (the old route's leg is already at the
+      // final waypoint, i.e. the target itself).
+      const stepType = state.mission.steps[state.missionStep]
+        ? state.mission.steps[state.missionStep].type : null;
+      if (stepType === 'goto' || stepType === 'deliver' || stepType === 'drive') {
+        route = null;
+        leg = 0;
+      }
       if (state.missionIndex !== lastMissionIdx) {
         if (lastMissionIdx >= 0) {
           // mission changed without EVENT_MISSION: a restart (failMission).

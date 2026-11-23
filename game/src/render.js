@@ -458,8 +458,12 @@ export function createRenderer(canvas) {
 
   function drawHud(state, ui) {
     context.textBaseline = 'top';
-    // Cash.
-    text(cashLabel(state.cash), 24, 18, 30, PALETTE.cash, 'left');
+    // Cash, on a dark panel like the objective box, so world sprites
+    // never show through the text.
+    const cashText = cashLabel(state.cash);
+    context.fillStyle = 'rgba(0,0,0,0.55)';
+    context.fillRect(16, 10, cashText.length * 19 + 16, 44);
+    text(cashText, 24, 18, 30, PALETTE.cash, 'left');
     // Health bar.
     const hw = 220;
     const hx = 24;
@@ -471,11 +475,14 @@ export function createRenderer(canvas) {
     context.fillStyle = state.player.health > 30 ? PALETTE.health : PALETTE.healthLow;
     context.fillRect(hx, hy, hw * (state.player.health / PLAYER.health), 14);
     text('HEALTH', hx + hw + 10, hy - 2, 15, PALETTE.text, 'left');
-    // Wanted stars, top centre.
+    // Wanted stars, top centre — on the same dark panel as the cash,
+    // so a passing police car never shows through the stars.
     const stars = Math.floor(state.wanted);
     const total = 5;
     const sw = 30;
     const sx0 = FIELD.width / 2 - (total * sw) / 2;
+    context.fillStyle = 'rgba(0,0,0,0.55)';
+    context.fillRect(sx0 - 8, 8, total * sw + 16, 58);
     for (let i = 0; i < total; i += 1) {
       text('★', sx0 + i * sw + sw / 2, 14, 30, i < stars ? PALETTE.star : 'rgba(255,255,255,0.25)', 'center');
     }
@@ -539,7 +546,7 @@ export function createRenderer(canvas) {
     context.setTransform(view.scale, 0, 0, view.scale, view.x, view.y);
     if (screen === SCREEN_TITLE) {
       drawPanel('NEON HARBOR', [
-        'Marlowe Bay. One driver. Fifty grand of debt.',
+        'Marlowe Bay. One driver. Nineteen grand of debt.',
         'Steal cars. Outrun the Harbor Police.',
         'Work six jobs for Mara Voss.',
         'WASD / arrows move and drive · E steal or leave a car',
@@ -562,7 +569,7 @@ export function createRenderer(canvas) {
       drawPanel('Job done', [`Mara Voss paid you $${ui.reward || 0}.`, `Total cash: $${state.cash}`, ui.nextTitle ? `Next: ${ui.nextTitle}` : 'That was the last job.'], 'Press Enter to keep driving');
     } else if (screen === SCREEN_STORY) {
       drawPanel('DEBT PAID', [
-        'The boat pulls away from the Old Pier. Fifty grand, cleared.',
+        'The boat pulls away from the Old Pier. Nineteen grand, cleared.',
         'Rook Calloway is free — and Marlowe Bay is still his.',
         `Final haul: $${state.cash}`,
       ], 'Press Enter to keep driving the city');

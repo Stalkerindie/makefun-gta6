@@ -279,6 +279,13 @@ export function createRenderer(canvas) {
     // blinking fully invisible read as "the character disappears".
     const p = state.player;
     if (p.onFoot) {
+      context.fillStyle = 'rgba(0,0,0,0.25)';
+      circle(p.x, p.y, 20);
+      context.strokeStyle = PALETTE.player;
+      context.lineWidth = 2;
+      context.beginPath();
+      context.arc(p.x, p.y, 18, 0, Math.PI * 2);
+      context.stroke();
       context.globalAlpha = p.invulnerable > 0 ? 0.35 : 1;
       context.fillStyle = PALETTE.player;
       circle(p.x, p.y, PLAYER.radius);

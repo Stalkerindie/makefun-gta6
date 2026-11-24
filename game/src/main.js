@@ -115,7 +115,9 @@ function uiFor(state, best, message, saveExists) {
         } else if (step.type === 'follow') {
           ui.objectiveText += `\n${Math.floor(state.missionProgress)}s / ${step.need}s`;
         } else if (step.type === 'evade') {
-          ui.objectiveText += `\nWanted now: ${Math.floor(state.wanted)}★ — lose them all`;
+          ui.objectiveText += `\nWanted now: ${state.wanted.toFixed(1)}★ — lose them all`;
+          if (state.copNear) ui.objectiveText += `\nThey can see you — break line of sight!`;
+          else if (state.wanted > 0 && state.quietTimer > 8) ui.objectiveText += `\nThey lost your trail — stay quiet!`;
         }
       }
     }

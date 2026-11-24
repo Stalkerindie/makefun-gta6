@@ -704,6 +704,7 @@ export function createWorld(random) {
           && lineOfSight(cop.x, cop.y, player.x, player.y)) { copNear = true; break; }
       }
     }
+    state.copNear = copNear;
     const decay = state.mission && state.mission.id === 'hot-pursuit' ? WANTED.decayPerSecond * 4 : WANTED.decayPerSecond;
     if (state.quietTimer > WANTED.quietSeconds && !copNear && state.wanted > 0) {
       state.wanted = Math.max(0, state.wanted - decay * dt);
